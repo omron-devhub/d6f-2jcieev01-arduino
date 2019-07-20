@@ -25,18 +25,17 @@
 /* includes */
 #include <Wire.h>
 
+#define GPIO_LED_R_PIN 4
+#define GPIO_LED_G_PIN 5
+#define GPIO_LED_B_PIN 6
+
+/* defines */
 #define  D6F_addr   0x6C // D6F-PH Slave address at 7bit expression
 //#define  RANGE_MODE  100 // +/-50[Pa] range
 #define  RANGE_MODE  250 // 0-250[Pa] range
 //#define  RANGE_MODE 1000 // +/-500[Pa] range
-byte  rbuf[32];
 
-//============================================//
-// Aruduino Reference Information             //
-// http://www.musashinodenpa.com/arduino/ref/ //
-//  SDA(data)  => A4 pin                      //
-//  SCL(clock) => A5 pin                      //
-//============================================//
+byte  rbuf[32];
 
 void  I2C_WR(char sadd, byte *dbuf, byte num){
   int i = 0;
@@ -60,7 +59,8 @@ word I2C_RD_16 (char sadd, byte *dbuf, byte num){
     i++;
   }
   Wire.endTransmission(); // I2C stop
-  Wire.requestFrom(sadd, 2); //
+
+  Wire.requestFrom(sadd, 2);
   i = 0;
   while(Wire.available()){
    rd_buf[i++] = Wire.read(); // first received byte stored here
@@ -72,26 +72,53 @@ word I2C_RD_16 (char sadd, byte *dbuf, byte num){
 
 void setup()
 {
-   Serial.begin(9600); // Set bourd rate = 9600bps
-   Wire.begin(); // i2c master
-   
+    Serial.begin(115200);
+    Serial.println("peripherals: GPIO");
+    pinMode(GPIO_LED_R_PIN, OUTPUT);
+    pinMode(GPIO_LED_G_PIN, OUTPUT);
+    pinMode(GPIO_LED_B_PIN, OUTPUT);
+
+    digitalWrite(GPIO_LED_R_PIN, LOW);
+    digitalWrite(GPIO_LED_G_PIN, LOW);
+    digitalWrite(GPIO_LED_B_PIN, LOW);
+
+    Serial.println("peripherals: I2C");
+    Wire.begin();  // master
+
+    Serial.println("sensor: Differential pressure Sensor");
+    delay(32);
+
+    Wire.begin(); // i2c master
+
    // EEPROM Control <= 0x00h
    byte send0[] = {0x0B, 0x00};
    I2C_WR(D6F_addr, send0, 2);
 
    // MCU mode <= 0x1F(31) //
-   byte send1[] = {0x00, 0xD0, 0x47, 0x18, 0x1F}; // <= This line maybe needless for mass production sample.
-   I2C_WR(D6F_addr, send1, 5);                    // <= This line maybe needless for mass production sample.
+ //  byte send1[] = {0x00, 0xD0, 0x47, 0x18, 0x1F}; // <= This line maybe needless for mass production sample.
+  // I2C_WR(D6F_addr, send1, 5);                    // <= This line maybe needless for mass production sample.
 
 }
     
+ /** <!-- loop - Differential pressure sensor {{{1 -->
+ * 1. blink LEDs
+ * 2. read and convert sensor.
+ * 3. output results, format is: [Pa]
+ */
 void loop()
 {
+  static bool blink = false;
   int  i,j;
   int  itemp;
   word rd_flow;
   float Flow_rate;
   
+  blink = !blink;
+    digitalWrite(GPIO_LED_R_PIN, blink ? HIGH: LOW);
+    digitalWrite(GPIO_LED_G_PIN, blink ? HIGH: LOW);
+    digitalWrite(GPIO_LED_B_PIN, blink ? HIGH: LOW);
+    delay(900);
+
   byte send0[] = {0x00, 0xD0, 0x40, 0x18, 0x06};
   I2C_WR(D6F_addr, send0, 5);
 
@@ -110,10 +137,9 @@ void loop()
   else{
       Flow_rate = ((float)rd_flow - 1024.0) * RANGE_MODE / 60000.0 - RANGE_MODE/2;
   }
-
-  Serial.print(rd_flow, HEX);   //print read hex data
-  Serial.print(" ");            //print space
-  Serial.println(Flow_rate, 2); //print converted flow rate
+  Serial.print("sensor output:");
+  Serial.print(Flow_rate, 2); //print converted flow rate
+  Serial.println("[Pa]");
   ; // post operation.
-  delay(500);
 }
+// vi: ft=arduino:fdm=marker:et:sw=4:tw=80
