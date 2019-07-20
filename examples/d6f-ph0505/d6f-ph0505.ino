@@ -1,6 +1,6 @@
 /*
  * MIT License
- * Copyright (c) 2019, 2018 - present OMRON Corporation
+ * Copyright (c) 2019 - present OMRON Corporation
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -31,39 +31,58 @@
 // #define RANGE_MODE 1000     // +/-500[Pa] range
 
 
-void I2C_WR(char sadd, uint8_t* dbuf, uint8_t num) {
-    int i = 0;
-
-    Wire.beginTransmission(sadd);  // I2C start
-    while (num--) {
-        Wire.write(dbuf[i]);  // I2C write
-        i++;
-    }
-    Wire.endTransmission();  // I2C stop
+uint8_t conv16_u8_h(int16_t a) {
+    return (uint8_t)(a >> 8);
 }
 
-int16_t I2C_RD_16(char sadd, uint8_t* dbuf, uint8_t num) {
-    int i = 0;
-    int16_t rd_fifo;
-    uint8_t rd_buf[2];
-
-    Wire.beginTransmission(sadd);   // I2C start
-    while (num--) {
-        Wire.write(dbuf[i]);        // I2C write
-        i++;
-    }
-    Wire.endTransmission();         // I2C stop
-
-    Wire.requestFrom(sadd, 2);
-    i = 0;
-    while (Wire.available()) {
-        rd_buf[i++] = Wire.read();  // first received byte stored here
-    }
-    rd_fifo = (int16_t)((rd_buf[0] << 8) | rd_buf[1]);
-
-    return rd_fifo;
+uint8_t conv16_u8_l(int16_t a) {
+    return (uint8_t)(a & 0xFF);
 }
 
+int16_t conv8us_s16_be(uint8_t* buf) {
+    return (int16_t)(((int32_t)buf[0] << 8) + (int32_t)buf[1]);
+}
+
+
+/** <!-- i2c_write_reg16 {{{1 -->
+ */
+bool i2c_write_reg16(uint8_t slave_addr, uint16_t register_addr,
+                     uint8_t *write_buff, uint8_t len) {
+    Wire.beginTransmission(slave_addr);
+
+    Wire.write(conv16_u8_h(register_addr));
+    Wire.write(conv16_u8_l(register_addr));
+
+    if (len != 0) {
+        for (uint8_t i = 0; i < len; i++) {
+            Wire.write(write_buff[i]);
+        }
+    }
+    Wire.endTransmission();
+    return false;
+}
+
+
+/** <!-- i2c_read_reg8 {{{1 -->
+ */
+bool i2c_read_reg8(uint8_t slave_addr, uint8_t register_addr,
+                   uint8_t *read_buff, uint8_t len) {
+    i2c_write_reg8(slave_addr, register_addr, NULL, 0);
+
+    Wire.requestFrom(slave_addr, len);
+
+    if (Wire.available() != len) {
+        return true;
+    }
+    for (uint16_t i = 0; i < len; i++) {
+        read_buff[i] = Wire.read();
+    }
+    return false;
+}
+
+
+/** <!-- setup {{{1 -->
+ */
 void setup() {
     Serial.begin(115200);
     Serial.println("peripherals: I2C");
@@ -73,32 +92,32 @@ void setup() {
     delay(32);
 
     // EEPROM Control <= 0x00h
-    uint8_t send0[] = {0x0B, 0x00};
-    I2C_WR(D6F_ADDR, send0, 2);
+    i2c_write_reg16(D6F_ADDR, 0x0B00, NULL, 0);
 }
 
- /** <!-- loop - Differential pressure sensor {{{1 -->
+
+/** <!-- loop - Differential pressure sensor {{{1 -->
  * 1. read and convert sensor.
  * 2. output results, format is: [Pa]
  */
 void loop() {
-    int16_t rd_flow;
-    float flow_rate;
-
     delay(900);
 
-    uint8_t send0[] = {0x00, 0xD0, 0x40, 0x18, 0x06};
-    I2C_WR(D6F_ADDR, send0, 5);
+    uint8_t send0[] = {0x40, 0x18, 0x06};
+    i2c_write_reg16(D6F_ADDR, 0x00D0, send0, 3);
 
     delay(50);  // wait 50ms
 
-    uint8_t send1[] = {0x00, 0xD0, 0x51, 0x2C};
-    I2C_WR(D6F_ADDR, send1, 4);
+    uint8_t send1[] = {0x51, 0x2C};
+    i2c_write_reg16(D6F_ADDR, 0x00D0, send1, 2);
 
-    uint8_t send2[] = {0x07};
-    rd_flow = I2C_RD_16(D6F_ADDR, send2, 1);  // read from [07h]
+    uint8_t rbuf[2];
+    if (i2c_read_reg8(D6F_ADDR, 0x07, rbuf, 2)) {  // read from [07h]
+        return;
+    }
+    int16_t rd_flow = conv8us_s16_be(rbuf);
 
-
+    float flow_rate;
     if (RANGE_MODE == 250) {
         flow_rate = ((float)rd_flow - 1024.0) * RANGE_MODE / 60000.0;
     } else {
