@@ -1,6 +1,6 @@
 /*
  * MIT License
- * Copyright (c) 2019, 2018 - present OMRON Corporation
+ * Copyright (c) 2019 - present OMRON Corporation
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -26,108 +26,106 @@
 #include <Wire.h>
 
 /* defines */
-#define D6T_ADDR 0x0A  // for I2C 7bit address
-#define D6T_CMD 0x4C  // for D6T-44L-06/06H, D6T-8L-09/09H, for D6T-1A-01/02
-
-#define N_ROW 4
-#define N_PIXEL (4 * 4)
-
-#define N_READ ((N_PIXEL + 1) * 2 + 1)
-uint8_t rbuf[N_READ];
+#define D6F_ADDR 0x6C  // D6F-PH I2C client address at 7bit expression
 
 
-uint8_t calc_crc(uint8_t data) {
-    int index;
-    uint8_t temp;
-    for (index = 0; index < 8; index++) {
-        temp = data;
-        data <<= 1;
-        if (temp & 0x80) {data ^= 0x07;}
-    }
-    return data;
+uint8_t conv16_u8_h(int16_t a) {
+    return (uint8_t)(a >> 8);
 }
 
-/** <!-- D6T_checkPEC {{{ 1--> D6T PEC(Packet Error Check) calculation.
- * calculate the data sequence,
- * from an I2C Read client address (8bit) to thermal data end.
- */
-bool D6T_checkPEC(uint8_t buf[], int n) {
-    int i;
-    uint8_t crc = calc_crc((D6T_ADDR << 1) | 1);  // I2C Read address (8bit)
-    for (i = 0; i < n; i++) {
-        crc = calc_crc(buf[i] ^ crc);
-    }
-    bool ret = crc != buf[n];
-    if (ret) {
-        Serial.print("PEC check failed:");
-        Serial.print(crc, HEX);
-        Serial.print("(cal) vs ");
-        Serial.print(buf[n], HEX);
-        Serial.println("(get)");
-    }
-    return ret;
+uint8_t conv16_u8_l(int16_t a) {
+    return (uint8_t)(a & 0xFF);
+}
+
+int16_t conv8us_s16_be(uint8_t* buf) {
+    return (int16_t)(((int32_t)buf[0] << 8) + (int32_t)buf[1]);
 }
 
 
-/** <!-- conv8us_s16_le {{{1 --> convert a 16bit data from the byte stream.
+/** <!-- i2c_write_reg16 {{{1 --> I2C write bytes with a 16bit register.
  */
-int16_t conv8us_s16_le(uint8_t* buf, int n) {
-    int ret;
-    ret = buf[n];
-    ret += buf[n + 1] << 8;
-    return (int16_t)ret;   // and convert negative.
+bool i2c_write_reg16(uint8_t slave_addr, uint16_t register_addr,
+                     uint8_t *write_buff, uint8_t len) {
+    Wire.beginTransmission(slave_addr);
+
+    Wire.write(conv16_u8_h(register_addr));
+    Wire.write(conv16_u8_l(register_addr));
+
+    if (len != 0) {
+        for (uint8_t i = 0; i < len; i++) {
+            Wire.write(write_buff[i]);
+        }
+    }
+    Wire.endTransmission();
+    return false;
+}
+
+
+/** <!-- i2c_read_reg8 {{{1 --> I2C read bytes with a 8bit register.
+ */
+bool i2c_read_reg8(uint8_t slave_addr, uint8_t register_addr,
+                   uint8_t *read_buff, uint8_t len) {
+    Wire.beginTransmission(slave_addr);
+    Wire.write(register_addr);
+    Wire.endTransmission();
+
+    Wire.requestFrom(slave_addr, len);
+
+    if (Wire.available() != len) {
+        return true;
+    }
+    for (uint16_t i = 0; i < len; i++) {
+        read_buff[i] = Wire.read();
+    }
+    return false;
 }
 
 
 /** <!-- setup {{{1 -->
  * 1. initialize a Serial port for output.
  * 2. initialize an I2C peripheral.
+ * 3. setup sensor settings.
  */
 void setup() {
-    Serial.begin(115200);  // Serial bourd rate = 115200bps
+    Serial.begin(115200);
+    Serial.println("peripherals: I2C");
     Wire.begin();  // i2c master
+
+    Serial.println("sensor: Differential pressure Sensor");
+    delay(32);
+
+    // EEPROM Control <= 0x00h
+    i2c_write_reg16(D6F_ADDR, 0x0B00, NULL, 0);
 }
 
 
-/** <!-- loop - Thermal sensor {{{1 -->
- * 1. read sensor.
- * 2. output results, format is: [degC]
+/** <!-- loop - Differential pressure sensor {{{1 -->
+ * 1. read and convert sensor.
+ * 2. output results, format is: [Pa]
  */
 void loop() {
-    int i, j;
+    delay(900);
 
-    memset(rbuf, 0, N_READ);
-    // Wire buffers are enough to read D6T-16L data (33bytes) with
-    // MKR-WiFi1010 and Feather ESP32,
-    // these have 256 and 128 buffers in their libraries.
-    Wire.beginTransmission(D6T_ADDR);  // I2C client address
-    Wire.write(D6T_CMD);               // D6T register
-    Wire.endTransmission();            // I2C repeated start for read
-    Wire.requestFrom(D6T_ADDR, N_READ);
-    i = 0;
-    while (Wire.available()) {
-        rbuf[i++] = Wire.read();
-    }
+    uint8_t send0[] = {0x40, 0x18, 0x06};
+    i2c_write_reg16(D6F_ADDR, 0x00D0, send0, 3);
 
-    if (D6T_checkPEC(rbuf, N_READ - 1)) {
+    delay(50);  // wait 50ms
+
+    uint8_t send1[] = {0x51, 0x2C};
+    i2c_write_reg16(D6F_ADDR, 0x00D0, send1, 2);
+
+    uint8_t rbuf[2];
+    if (i2c_read_reg8(D6F_ADDR, 0x07, rbuf, 2)) {  // read from [07h]
         return;
     }
+    int16_t rd_flow = conv8us_s16_be(rbuf);
 
-    // 1st data is PTAT measurement (: Proportional To Absolute Temperature)
-    int16_t itemp = conv8us_s16_le(rbuf, 0);
-    Serial.print("PTAT:");
-    Serial.println(itemp / 10.0, 1);
+    float flow_rate;
+    // 0-70[L/min] range
+    flow_rate = ((float)rd_flow - 1024.0) * 70.0 / 60000.0;
 
-    // loop temperature pixels of each thrmopiles measurements
-    for (i = 0, j = 2; i < N_PIXEL; i++, j += 2) {
-        itemp = conv8us_s16_le(rbuf, j);
-        Serial.print(itemp / 10.0, 1);  // print PTAT & Temperature
-        if ((i % N_ROW) == N_ROW - 1) {
-            Serial.println(" [degC]");  // wrap text at ROW end.
-        } else {
-            Serial.print(",");   // print delimiter
-        }
-    }
-    delay(1000);
+    Serial.print("sensor output:");
+    Serial.print(flow_rate, 2);  // print converted flow rate
+    Serial.println("[L/min]");
 }
 // vi: ft=arduino:fdm=marker:et:sw=4:tw=80

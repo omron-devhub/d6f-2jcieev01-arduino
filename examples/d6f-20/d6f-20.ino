@@ -121,11 +121,11 @@ void loop() {
     int16_t rd_flow = conv8us_s16_be(rbuf);
 
     float flow_rate;
-    // calculation for 0-250[Pa] range
-    flow_rate = ((float)rd_flow - 1024.0) * 250 / 60000.0;
+    // 0-20[L/min] range
+    flow_rate = ((float)rd_flow - 1024.0) * 20.0 / 60000.0;
 
     Serial.print("sensor output:");
     Serial.print(flow_rate, 2);  // print converted flow rate
-    Serial.println("[Pa]");
+    Serial.println("[L/min]");
 }
 // vi: ft=arduino:fdm=marker:et:sw=4:tw=80

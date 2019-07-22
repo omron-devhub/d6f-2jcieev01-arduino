@@ -21,6 +21,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+
 /* includes */
 #include <Wire.h>
 
@@ -64,7 +65,9 @@ bool i2c_write_reg16(uint8_t slave_addr, uint16_t register_addr,
  */
 bool i2c_read_reg8(uint8_t slave_addr, uint8_t register_addr,
                    uint8_t *read_buff, uint8_t len) {
-    i2c_write_reg8(slave_addr, register_addr, NULL, 0);
+    Wire.beginTransmission(slave_addr);
+    Wire.write(register_addr);
+    Wire.endTransmission();
 
     Wire.requestFrom(slave_addr, len);
 

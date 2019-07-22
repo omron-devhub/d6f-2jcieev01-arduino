@@ -27,6 +27,7 @@ sample projects output the sensor data to USB-Serial ports.
 | d6f-50     | for Air flow          | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 | d6f-70     | for Air flow          | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 
+
 ## DEMO
 sample output for D6F-
 
