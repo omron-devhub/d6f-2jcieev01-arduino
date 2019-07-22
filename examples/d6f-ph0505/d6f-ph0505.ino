@@ -26,9 +26,6 @@
 
 /* defines */
 #define D6F_ADDR 0x6C  // D6F-PH I2C client address at 7bit expression
-// #define RANGE_MODE 100  // +/-50[Pa] range
-#define RANGE_MODE 250      // 0-250[Pa] range
-// #define RANGE_MODE 1000     // +/-500[Pa] range
 
 
 uint8_t conv16_u8_h(int16_t a) {
@@ -44,7 +41,7 @@ int16_t conv8us_s16_be(uint8_t* buf) {
 }
 
 
-/** <!-- i2c_write_reg16 {{{1 -->
+/** <!-- i2c_write_reg16 {{{1 --> I2C write bytes with a 16bit register.
  */
 bool i2c_write_reg16(uint8_t slave_addr, uint16_t register_addr,
                      uint8_t *write_buff, uint8_t len) {
@@ -63,7 +60,7 @@ bool i2c_write_reg16(uint8_t slave_addr, uint16_t register_addr,
 }
 
 
-/** <!-- i2c_read_reg8 {{{1 -->
+/** <!-- i2c_read_reg8 {{{1 --> I2C read bytes with a 8bit register.
  */
 bool i2c_read_reg8(uint8_t slave_addr, uint8_t register_addr,
                    uint8_t *read_buff, uint8_t len) {
@@ -82,6 +79,9 @@ bool i2c_read_reg8(uint8_t slave_addr, uint8_t register_addr,
 
 
 /** <!-- setup {{{1 -->
+ * 1. initialize a Serial port for output.
+ * 2. initialize an I2C peripheral.
+ * 3. setup sensor settings.
  */
 void setup() {
     Serial.begin(115200);
@@ -118,11 +118,9 @@ void loop() {
     int16_t rd_flow = conv8us_s16_be(rbuf);
 
     float flow_rate;
-    if (RANGE_MODE == 250) {
-        flow_rate = ((float)rd_flow - 1024.0) * RANGE_MODE / 60000.0;
-    } else {
-        flow_rate = ((float)rd_flow - 1024.0) * RANGE_MODE / 60000.0 - RANGE_MODE / 2;
-    }
+    // calculation for +/-50[Pa] range
+    flow_rate = ((float)rd_flow - 1024.0) * 100.0 / 60000.0 - 50.0;
+
     Serial.print("sensor output:");
     Serial.print(flow_rate, 2);  // print converted flow rate
     Serial.println("[Pa]");
