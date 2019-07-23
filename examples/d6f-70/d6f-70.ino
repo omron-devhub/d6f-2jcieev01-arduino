@@ -37,8 +37,8 @@ uint8_t conv16_u8_l(int16_t a) {
     return (uint8_t)(a & 0xFF);
 }
 
-int16_t conv8us_s16_be(uint8_t* buf) {
-    return (int16_t)(((int32_t)buf[0] << 8) + (int32_t)buf[1]);
+uint16_t conv8us_u16_be(uint8_t* buf) {
+    return (uint16_t)(((uint32_t)buf[0] << 8) | (uint32_t)buf[1]);
 }
 
 
@@ -94,7 +94,7 @@ void setup() {
     Serial.println("sensor: Differential pressure Sensor");
     delay(32);
 
-    // EEPROM Control <= 0x00h
+    // D6F setup: EEPROM Control <= 0x00h
     i2c_write_reg16(D6F_ADDR, 0x0B00, NULL, 0);
 }
 
@@ -118,7 +118,7 @@ void loop() {
     if (i2c_read_reg8(D6F_ADDR, 0x07, rbuf, 2)) {  // read from [07h]
         return;
     }
-    int16_t rd_flow = conv8us_s16_be(rbuf);
+    uint16_t rd_flow = conv8us_u16_be(rbuf);
 
     float flow_rate;
     // 0-70[L/min] range
