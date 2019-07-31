@@ -17,7 +17,7 @@ Reduce to Piping time by quick joint connection
 this Arduino sample projects for acquiring data from sensors on 2JCIE-EV01.
 sample projects output the sensor data to USB-Serial ports.
 
-| example    | description           | baord |
+| example    | description           | board |
 |:----------:|:----------------------|:-----------------------|
 | d6f-ph0025 | differential pressure | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 | d6f-ph0505 | differential pressure | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
