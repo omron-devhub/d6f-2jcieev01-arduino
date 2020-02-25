@@ -68,7 +68,7 @@ see `https://www.arduino.cc/en/guide/libraries`
 1. download this repo
 
     ```shell
-    $ git clone https://github.com/omron-devhub/b5w-2jcieev01-arduino
+    $ git clone https://github.com/omron-devhub/b5w-d6f-d6t-2jcieev01-arduino
     ```
 
 2. launch Arduino-IDE and select our sketch to load.
