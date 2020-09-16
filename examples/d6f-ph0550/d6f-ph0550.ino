@@ -122,7 +122,7 @@ void loop() {
 
     float flow_rate;
     // calculation for +/-500[Pa] range
-    flow_rate = ((float)rd_flow - 1024.0) * 500.0 / 60000.0 - 250.0;
+    flow_rate = ((float)rd_flow - 1024.0) * 1000.0 / 60000.0 - 500.0;
 
     Serial.print("sensor output:");
     Serial.print(flow_rate, 2);  // print converted flow rate
