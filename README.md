@@ -21,7 +21,7 @@ sample projects output the sensor data to USB-Serial ports.
 |:----------:|:----------------------|:-----------------------|
 | d6f-ph0025 | differential pressure | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 | d6f-ph0505 | differential pressure | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
-| d6f-ph0550 | differential pressure | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
+| d6f-ph5050 | differential pressure | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 | d6f-10     | for Air flow          | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 | d6f-20     | for Air flow          | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
 | d6f-50     | for Air flow          | Arduino MKR-WiFi1010/ Adafruit Feather ESP32 |
