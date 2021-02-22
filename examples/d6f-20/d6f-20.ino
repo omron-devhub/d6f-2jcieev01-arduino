@@ -80,7 +80,6 @@ bool i2c_read_reg8(uint8_t slave_addr, uint8_t register_addr,
     return false;
 }
 
-
 /** <!-- setup {{{1 -->
  * 1. initialize a Serial port for output.
  * 2. initialize an I2C peripheral.
@@ -94,38 +93,37 @@ void setup() {
     Serial.println("sensor: Differential pressure Sensor");
     delay(32);
 
-    // D6F setup: EEPROM Control <= 0x00h
+    // 1. Initialize sensor (0Bh, 00h)
     i2c_write_reg16(D6F_ADDR, 0x0B00, NULL, 0);
 }
 
-
-/** <!-- loop - Differential pressure sensor {{{1 -->
+/** <!-- loop - Flow sensor {{{1 -->
  * 1. read and convert sensor.
- * 2. output results, format is: [Pa]
+ * 2. output results, format is: [L/min]
  */
 void loop() {
     delay(900);
-
+    
+    // 2. Trigger getting data (00h, D0h, 40h, 18h, 06h)
     uint8_t send0[] = {0x40, 0x18, 0x06};
     i2c_write_reg16(D6F_ADDR, 0x00D0, send0, 3);
 
     delay(50);  // wait 50ms
-
+    
+    // 3. Read data (00h, D0h, 51h, 2Ch) (07h)
     uint8_t send1[] = {0x51, 0x2C};
     i2c_write_reg16(D6F_ADDR, 0x00D0, send1, 2);
-
     uint8_t rbuf[2];
-    if (i2c_read_reg8(D6F_ADDR, 0x07, rbuf, 2)) {  // read from [07h]
+    if (i2c_read_reg8(D6F_ADDR, 0x07, rbuf, 2)) {
         return;
     }
     uint16_t rd_flow = conv8us_u16_be(rbuf);
-
     float flow_rate;
+    
     // 0-20[L/min] range
     flow_rate = ((float)rd_flow - 1024.0) * 20.0 / 60000.0;
 
-    Serial.print("sensor output:");
     Serial.print(flow_rate, 2);  // print converted flow rate
-    Serial.println("[L/min]");
+    Serial.println(" [L/min]");
 }
 // vi: ft=arduino:fdm=marker:et:sw=4:tw=80
